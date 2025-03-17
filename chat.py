@@ -7,13 +7,13 @@ import groq
 from sentence_transformers import SentenceTransformer
 
 # 🔹 File Paths
-PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.parquet"
+PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output-best.parquet"
 
 # 🔹 Load Sentence Transformer Model for Embeddings
 embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
 # 🔹 Load & Process UNSPSC Data from Parquet
-def load_unspsc_parquet(sample_size=1580):
+def load_unspsc_parquet(sample_size=158300):
     print("\n🔄 Loading UNSPSC data from Parquet using Polars...")
 
     df = pl.read_parquet(PARQUET_DATA_PATH).head(sample_size)
@@ -93,8 +93,6 @@ def build_hnsw_index(unspsc_data):
 
 # ✅ Pass `UNSPSC_DATA` when calling `build_hnsw_index()`
 HNSW_INDEXES = build_hnsw_index(UNSPSC_DATA)
-
-
 
 
 # 🔹 Hierarchical HNSWLIB Search (First Try Commodity, Then Class)
