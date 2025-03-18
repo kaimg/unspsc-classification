@@ -10,8 +10,9 @@ wheels/
 .venv
 .env
 
-    # Store
-    .xlsx
-    .csv
-    .parquet
-    .json
+# Store
+.xlsx
+.csv
+.parquet
+.json
+.db
