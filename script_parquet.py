@@ -5,6 +5,7 @@ import polars as pl
 PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.parquet"
 SEGMENT_PARQUET_PATH = "/home/kaimg/Documents/p3/kamran/segment_level.parquet"
 FAMILY_PARQUET_PATH = "/home/kaimg/Documents/p3/kamran/family_level.parquet"
+CLASS_PARQUET_PATH = "/home/kaimg/Documents/p3/kamran/class_level.parquet"
 
 # 🔹 Load & Extract Hierarchy from UNSPSC Data
 def load_and_split_unspsc():
@@ -24,7 +25,8 @@ def load_and_split_unspsc():
     # ✅ Safely extract levels using `.map_elements()`
     df = df.with_columns(
         df["Hierarchy"].map_elements(lambda x: x[0] if len(x) > 0 else "").alias("Segment"),
-        df["Hierarchy"].map_elements(lambda x: x[1] if len(x) > 1 else "").alias("Family")
+        df["Hierarchy"].map_elements(lambda x: x[1] if len(x) > 1 else "").alias("Family"),
+        df["Hierarchy"].map_elements(lambda x: x[2] if len(x) > 2 else "").alias("Class")
     ).drop("Hierarchy")  # Drop temporary hierarchy list
 
     print(f"✅ Loaded & processed {df.shape[0]} UNSPSC records.\n")
@@ -45,6 +47,10 @@ def save_unique_levels_as_parquet(df):
     family_df.write_parquet(FAMILY_PARQUET_PATH, compression="snappy")
     print(f"✅ Unique Family data saved at: {FAMILY_PARQUET_PATH}")
 
+    # ✅ Save only unique `Family` level (linked to Segment)
+    family_df = df.select(["Segment", "Family", "Class"]).unique().drop_nulls()
+    family_df.write_parquet(CLASS_PARQUET_PATH, compression="snappy")
+    print(f"✅ Unique Family data saved at: {CLASS_PARQUET_PATH}")
 # 🔹 Run Process
 df_unspsc = load_and_split_unspsc()
 save_unique_levels_as_parquet(df_unspsc)

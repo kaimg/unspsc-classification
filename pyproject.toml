@@ -44,6 +44,7 @@ dependencies = [
     "nvidia-nvtx-cu12==12.4.127",
     "packaging==24.2",
     "pillow==11.1.0",
+    "pinecone>=6.0.2",
     "pip-tools==7.4.1",
     "polars==1.25.2",
     "pyarrow==19.0.1",
