@@ -1,4 +1,3 @@
-import os
 import re
 import json
 import hnswlib
@@ -6,20 +5,19 @@ import polars as pl
 import numpy as np
 import groq
 from sentence_transformers import SentenceTransformer
+from config import PARQUET_DATA_PATH, GROQ_API_KEY, SYSTEM_PROMPT, JSON_FILE_PATTERN
 
-# 🔹 File Paths
-PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.parquet"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # Ensure to set this environment variable
-
-# 🔹 Load Sentence Transformer Model for Embeddings
+# Load Sentence Transformer Model for Embeddings
 embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
-# 🔹 Initialize Groq Client for LLM (Mistral)
+# Initialize Groq Client for LLM
 client = groq.Client(api_key=GROQ_API_KEY)
 
-# 🔹 Load & Process UNSPSC Data from Parquet
-def load_unspsc_parquet(sample_size=15800):
-    print("\n🔄 Loading UNSPSC data from Parquet using Polars...")
+SAMPLE_SIZE = 15800 
+
+# Load & Process UNSPSC Data from Parquet
+def load_unspsc_parquet(sample_size=SAMPLE_SIZE):
+    print("\nLoading UNSPSC data from Parquet using Polars...")
     df = pl.read_parquet(PARQUET_DATA_PATH).head(sample_size)
     df = df.fill_null("").fill_nan("")
     
@@ -35,14 +33,14 @@ def load_unspsc_parquet(sample_size=15800):
         df["Hierarchy"].map_elements(lambda x: x[3] if len(x) > 3 else "", return_dtype=pl.Utf8).alias("Commodity")
     ).drop("Hierarchy")
     
-    print(f"✅ Loaded & processed {df.shape[0]} UNSPSC records.\n")
+    print(f"Loaded & processed {df.shape[0]} UNSPSC records.\n")
     return df
 
 UNSPSC_DATA = load_unspsc_parquet()
 
-# 🔹 Build HNSWLIB Index
+# Build HNSWLIB Index
 def build_hnsw_index(unspsc_data):
-    print("\n🔄 Building HNSWLIB index...")
+    print("\nBuilding HNSWLIB index...")
     category_levels = ["Commodity", "Class"]
     indexes = {}
 
@@ -66,15 +64,15 @@ def build_hnsw_index(unspsc_data):
             "unspsc_codes": unspsc_codes,
             "hierarchy_paths": hierarchy_paths
         }
-        print(f"✅ Finished building index for level: {level}")
+        print(f"Finished building index for level: {level}")
 
     return indexes
 
 HNSW_INDEXES = build_hnsw_index(UNSPSC_DATA)
 
-# 🔹 Search Logic using LLM and HNSW
+# Search Logic using LLM and HNSW
 def find_best_match_in_hierarchy(query_text, confidence_threshold=0.8):
-    print(f"\n🔍 Searching for: {query_text}")
+    print(f"\nSearching for: {query_text}")
 
     for level in ["Commodity", "Class"]:
         index_data = HNSW_INDEXES[level]
@@ -90,7 +88,7 @@ def find_best_match_in_hierarchy(query_text, confidence_threshold=0.8):
             best_unspsc_code = unspsc_codes[matched_index]
             hierarchy_path = hierarchy_paths[matched_index]
 
-            print(f"✅ Matched {level}: {matched_text} (Confidence: {similarity_score:.2f})")
+            print(f"Matched {level}: {matched_text} (Confidence: {similarity_score:.2f})")
 
             return {
                 "UNSPSC_Code": best_unspsc_code,
@@ -101,53 +99,21 @@ def find_best_match_in_hierarchy(query_text, confidence_threshold=0.8):
             }
     return None
 
-# 🔹 Main Search Loop
+# Main Search Loop
 def get_unspsc_code(query_text):
-    print(f"\n🔍 Searching for UNSPSC Code...")
-    SYSTEM_PROMPT = """
-        You are an AI trained to enrich product descriptions and predict the most appropriate UNSPSC commodity or class title based on the given description. You will work with a hierarchical structure that includes:
-        1. Segment
-        2. Family
-        3. Class
-        4. Commodity
-
-        Your tasks are as follows:
-        1. **Check if the product description is sufficient for finding a match.**  
-        If the description is clear enough, **enrich it with additional details** (e.g., synonyms, abbreviations, etc.) and **predict the most appropriate Commodity title**.
-        
-        2. **If the description is not sufficient** or if you cannot confidently predict the Commodity title, return the original description, and **predict the best Class title** instead.
-
-        3. **Return the following structure:**
-        - If you predict a Commodity title:
-        ```json
-        {
-            - Commodity_Title: The predicted Commodity title.
-            - Confidence_Score: A number between 0 and 1 representing how confident you are in this prediction.
-            - Explanation: A brief explanation of why this title was chosen.
-        }
-
-        - If you predict a Class title (fallback):
-        ```json
-        {
-            - Class_Title: The predicted Class title.
-            - Confidence_Score: A number between 0 and 1 representing how confident you are in this prediction.
-            - Explanation: A brief explanation of why this title was chosen.
-        }
-        
-        4. If you **cannot predict a meaningful title**, return an error:
-        ```json
-        {
-            "Error": "No suitable match found. Could not predict a valid UNSPSC code."
-        }
-
-        5. Remember: You should ALWAYS in the end of answer returnING in json format.
-    """
+    print(f"\nSearching for UNSPSC Code...")
+    
     # Step 1: Ask LLM for enriched prediction
     llm_prompt = f"Process the product description and predict the most relevant Commodity or Class title for: {query_text}"
+    
     response = client.chat.completions.create(
-        model="mistral-saba-24b",  # Use Mistral model from Groq API
-        messages=[{"role": "system", "content": "<SYS> " + SYSTEM_PROMPT}, {"role": "user", "content": llm_prompt}]
+        model="mistral-saba-24b",  # Use Mistral model from Groq API because this one is better by test
+        messages=[
+            {"role": "system", "content": "<SYS> " + SYSTEM_PROMPT}, 
+            {"role": "user", "content": llm_prompt}
+        ]
     )
+    
     # Extract predictions and confidence scores
     llm_response = response.choices[0].message.content
     print(f"\nLLM Response: {llm_response}")
@@ -155,8 +121,7 @@ def get_unspsc_code(query_text):
     # Extract the title from LLM response (either Commodity or Class)
     # You will need to parse this response as per your output format
 
-    pattern = r'```json\s*({.*?})\s*```'
-    match = re.search(pattern, llm_response, re.DOTALL)
+    match = re.search(JSON_FILE_PATTERN, llm_response, re.DOTALL)
 
     try:
         if match:
@@ -171,8 +136,10 @@ def get_unspsc_code(query_text):
                 print(f"Class Title: {title}")
             else:
                 return json.dumps({"Error": "No suitable match found. Could not predict a valid UNSPSC code."}, indent=4)
+            
     except Exception as err:
         print(f"No JSON found in the response {err=}, {type(err)=}")
+        return json.dumps({"Error": f"No JSON found in the response {err=}, {type(err)=}"}, indent=4)
 
     # If LLM provides a valid prediction, proceed with the HNSW search
     dataset_match = find_best_match_in_hierarchy(title)
@@ -184,13 +151,13 @@ def get_unspsc_code(query_text):
     print("\n🤖 Unable to find a suitable match.")
     return json.dumps({"Error": "No match found."}, indent=4)
 
-# 🔹 Main Function Loop
+# Main Function Loop
 if __name__ == "__main__":
     while True:
         try:
             user_input = input("\nEnter product description: ")
             if user_input.lower() in ["exit", "quit"]:
-                print("🚪 Exiting...")
+                print("Exiting...")
                 break
             result = get_unspsc_code(user_input)
             print(result)

@@ -1,8 +1,8 @@
 import polars as pl
-
+from config import EXCEL_FILE_PATH, CSV_FILE_PATH
 # Load the Excel file starting from the correct header row
-file_path = "UNSPSC English v260801.xlsx"  # Replace with your actual file path
-df = pl.read_excel(file_path, read_options={"header_row": 12})
+
+df = pl.read_excel(EXCEL_FILE_PATH, read_options={"header_row": 12})
 
 # Strip spaces from column names
 df = df.rename({col.strip(): col.strip() for col in df.columns})
@@ -19,8 +19,6 @@ if "Segment Definition" in df.columns:
         .alias("Segment Definition")
     )
 
-# Save the processed data to a CSV file
-csv_file_path = "output.csv"
-df.write_csv(csv_file_path)
+df.write_csv(CSV_FILE_PATH)
 
-print(f"CSV file saved as {csv_file_path}")
+print(f"CSV file saved as {CSV_FILE_PATH}")

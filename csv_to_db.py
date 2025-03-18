@@ -1,15 +1,12 @@
 import sqlite3
 import polars as pl
-
-# Define file paths
-csv_file_path = "output.csv"  # Processed CSV file
-db_file_path = "unspsc.db"  # SQLite database file
+from config import CSV_FILE_PATH, DB_FILE_PATH
 
 # Load CSV into a Polars DataFrame
-df = pl.read_csv(csv_file_path)
+df = pl.read_csv(CSV_FILE_PATH)
 
 # Connect to SQLite database (or create if not exists)
-conn = sqlite3.connect(db_file_path)
+conn = sqlite3.connect(DB_FILE_PATH)
 cursor = conn.cursor()
 
 # Define table schema (modify as needed based on CSV columns)
@@ -65,4 +62,4 @@ for row in df.to_dicts():
 conn.commit()
 conn.close()
 
-print(f"Data successfully written to SQLite database: {db_file_path}")
+print(f"Data successfully written to SQLite database: {DB_FILE_PATH}")

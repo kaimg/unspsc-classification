@@ -1,32 +1,28 @@
 import polars as pl
-import re
+from config import PARQUET_DATA_PATH, PARQUET_OUTPUT_PATH, TRAILING_PATTERN
 
-# 🔹 File Paths
-CSV_INPUT_PATH = "/home/kaimg/Documents/p3/kamran/output-from.csv"
-CSV_OUTPUT_PATH = "/home/kaimg/Documents/p3/kamran/output-from-fixed.csv"
-
-# 🔹 Function to Remove Trailing " > "
+# Function to Remove Trailing " > "
 def clean_trailing_arrows():
-    print("\n🔄 Loading CSV and cleaning trailing '>' symbols...")
+    print("\nLoading PARQUET and cleaning trailing '>' symbols...")
 
-    # ✅ Load CSV
-    df = pl.read_csv(CSV_INPUT_PATH, infer_schema_length=10000, ignore_errors=True)
+    # Load PARQUET
+    df = pl.read_parquet(PARQUET_DATA_PATH)
 
-    # ✅ Check if "Category_Path" exists
+    # Check if "Category_Path" exists
     if "Category_Path" not in df.columns:
-        print("❌ Error: 'Category_Path' column not found in CSV!")
+        print("Error: 'Category_Path' column not found in PARQUET!")
         return
 
-    # ✅ Remove trailing " > " symbols
+    # Remove trailing " > " symbols
     df = df.with_columns(
-        df["Category_Path"].str.replace_all(r"(\s?>\s?)+$", "")  # ✅ Remove trailing " > "
+        pl.col("Category_Path").str.replace(TRAILING_PATTERN, "")  # Remove trailing " > "
     )
 
-    print(f"✅ Fixed {df.shape[0]} rows with trailing '>'.")
+    print(f"Fixed {df.height} rows with trailing '>'.")
 
-    # ✅ Save cleaned data to new CSV
-    df.write_csv(CSV_OUTPUT_PATH)
-    print(f"✅ Cleaned data saved to: {CSV_OUTPUT_PATH}")
+    # Save cleaned data to new PARQUET
+    df.write_parquet(PARQUET_OUTPUT_PATH)
+    print(f"Cleaned data saved to: {PARQUET_OUTPUT_PATH}")
 
-# 🔹 Run Cleaning Function
+# Run Cleaning Function
 clean_trailing_arrows()

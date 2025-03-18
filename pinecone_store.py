@@ -1,26 +1,24 @@
-import os
 import pinecone
 import polars as pl
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from pinecone import ServerlessSpec
+from config import PARQUET_DATA_PATH, PINECONE_API_KEY
 
-# 🔹 File Paths
-PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.parquet"
 
-# 🔹 Load Sentence Transformer Model for Embeddings
+# Load Sentence Transformer Model for Embeddings
 embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
-# 🔹 Initialize Pinecone
+# Initialize Pinecone
 def initialize_pinecone():
     # Create an instance of the Pinecone class with your API key
-    pc = pinecone.Pinecone(api_key=os.getenv("PINECONE_API_KEY"), environment="us-east1-gcp")
-    print("✅ Pinecone initialized.")
+    pc = pinecone.Pinecone(api_key=PINECONE_API_KEY, environment="us-east1-gcp")
+    print("Pinecone initialized.")
     return pc
 
-# 🔹 Load & Process UNSPSC Data from Parquet
+# Load & Process UNSPSC Data from Parquet
 def load_unspsc_parquet(sample_size=15800):
-    print("\n🔄 Loading UNSPSC data from Parquet using Polars...")
+    print("\nLoading UNSPSC data from Parquet using Polars...")
 
     df = pl.read_parquet(PARQUET_DATA_PATH).head(sample_size)
     df = df.fill_null("").fill_nan("")
@@ -37,12 +35,12 @@ def load_unspsc_parquet(sample_size=15800):
         df["Hierarchy"].map_elements(lambda x: x[3] if len(x) > 3 else "", return_dtype=pl.Utf8).alias("Commodity")
     ).drop("Hierarchy")
     
-    print(f"✅ Loaded & processed {df.shape[0]} UNSPSC records.\n")
+    print(f"Loaded & processed {df.shape[0]} UNSPSC records.\n")
     return df
 
-# 🔹 Build and Store Data in Pinecone
+# Build and Store Data in Pinecone
 def store_in_pinecone(pc, unspsc_data):
-    print("\n🔄 Storing UNSPSC data in Pinecone...")
+    print("\nStoring UNSPSC data in Pinecone...")
 
     # Create Pinecone index (if it doesn't already exist)
     index_name = "unspsc-classification"
@@ -56,9 +54,9 @@ def store_in_pinecone(pc, unspsc_data):
             metric="cosine",  # Cosine similarity is typically used for embedding vectors
             spec=spec  # Add the index specification
         )
-        print(f"✅ Index '{index_name}' created.")
+        print(f"Index '{index_name}' created.")
     else:
-        print(f"✅ Index '{index_name}' already exists.")
+        print(f"Index '{index_name}' already exists.")
     
     # Connect to the Pinecone index
     index = pc.Index(index_name)
@@ -89,7 +87,7 @@ def store_in_pinecone(pc, unspsc_data):
 
     print("✅ Data successfully stored in Pinecone.")
 
-# 🔹 Main Function to run the process
+# Main Function to run the process
 def main():
     # Initialize Pinecone
     pc = initialize_pinecone()

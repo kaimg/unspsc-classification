@@ -1,9 +1,5 @@
-import os
 import polars as pl
-
-# 🔹 File Paths
-CSV_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.csv"
-PARQUET_DATA_PATH = "/home/kaimg/Documents/p3/kamran/output.parquet"
+from config import CSV_FILE_PATH, PARQUET_DATA_PATH
 
 # 🔹 Load & Optimize UNSPSC Data
 def load_and_optimize_unspsc(sample_size=158000):
@@ -11,7 +7,7 @@ def load_and_optimize_unspsc(sample_size=158000):
 
     # ✅ Read CSV with forced string type (Utf8) to avoid type mismatch errors
     df = pl.read_csv(
-        CSV_DATA_PATH,
+        CSV_FILE_PATH,
         infer_schema_length=10000,  # ✅ Ensures sufficient rows are checked
         ignore_errors=True  # ✅ Prevents crashes on bad data
     ).head(sample_size)
