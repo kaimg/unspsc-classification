@@ -16,3 +16,7 @@ wheels/
 .parquet
 .json
 .db
+
+
+# Log
+logs/

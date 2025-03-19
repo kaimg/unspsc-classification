@@ -3,7 +3,7 @@ from config import PARQUET_OUTPUT_PATH, SEGMENT_PARQUET_PATH, FAMILY_PARQUET_PAT
 
 # Load & Extract Hierarchy from UNSPSC Data
 def load_and_split_unspsc():
-    print("\n🔄 Loading UNSPSC data from Parquet using Polars...")
+    print("\nLoading UNSPSC data from Parquet using Polars...")
 
     # Read Parquet (Polars is 10x faster than Pandas)
     df = pl.read_parquet(PARQUET_OUTPUT_PATH)
