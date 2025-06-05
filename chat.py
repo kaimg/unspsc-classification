@@ -6,18 +6,17 @@ import numpy as np
 import groq
 from sentence_transformers import SentenceTransformer
 from logger import logger
-from config import PARQUET_DATA_PATH, GROQ_API_KEY, SYSTEM_PROMPT, JSON_FILE_PATTERN
+from config import PARQUET_DATA_PATH, GROQ_API_KEY, JSON_FILE_PATTERN, SYSTEM_PROMPT, RETURN_FORMAT
 
 # Load Sentence Transformer Model for Embeddings
-embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+#embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
 # Initialize Groq Client for LLM
-client = groq.Client(api_key=GROQ_API_KEY)
+#client = groq.Client(api_key=GROQ_API_KEY)
 
-SAMPLE_SIZE = 15800 
-
+#SAMPLE_SIZE = 158000
 # Load & Process UNSPSC Data from Parquet
-def load_unspsc_parquet(sample_size=SAMPLE_SIZE):
+def load_unspsc_parquet(sample_size):
     # print("\nLoading UNSPSC data from Parquet using Polars...")
     logger.info("Loading UNSPSC data from Parquet using Polars...")
     df = pl.read_parquet(PARQUET_DATA_PATH).head(sample_size)
@@ -39,10 +38,10 @@ def load_unspsc_parquet(sample_size=SAMPLE_SIZE):
     logger.info(f"Loaded & processed {df.shape[0]} UNSPSC records.")
     return df
 
-UNSPSC_DATA = load_unspsc_parquet()
+#UNSPSC_DATA = load_unspsc_parquet(SAMPLE_SIZE)
 
 # Build HNSWLIB Index
-def build_hnsw_index(unspsc_data):
+def build_hnsw_index(embedding_model, unspsc_data):
     # print("\nBuilding HNSWLIB index...")
     logger.info("Building HNSWLIB index...")
     category_levels = ["Commodity", "Class"]
@@ -74,10 +73,10 @@ def build_hnsw_index(unspsc_data):
         logger.info(f"Finished building index for level: {level}")
     return indexes
 
-HNSW_INDEXES = build_hnsw_index(UNSPSC_DATA)
+#HNSW_INDEXES = build_hnsw_index(UNSPSC_DATA)
 
 # Search Logic using LLM and HNSW
-def find_best_match_in_hierarchy(query_text, confidence_threshold=0.8):
+def find_best_match_in_hierarchy(embedding_model, HNSW_INDEXES, query_text, confidence_threshold=0.8):
     # print(f"\nSearching for: {query_text}")
     logger.info(f"Searching for: {query_text}")
 
@@ -107,35 +106,12 @@ def find_best_match_in_hierarchy(query_text, confidence_threshold=0.8):
     return None
 
 # Main Search Loop
-def get_unspsc_code(query_text):
+def get_unspsc_code(client, embedding_model, HNSW_INDEXES, query_text):
     # print(f"\nSearching for UNSPSC Code...")
     logger.info(f"Searching for UNSPSC Code...")    
 
     # Step 1: Ask LLM for enriched prediction
-    return_format = """
-    3. **Return the following structure:**
-    - If you predict a Commodity title:
-    ```json
-    {
-        - Commodity_Title: The predicted Commodity title.
-        - Confidence_Score: A number between 0 and 1 representing how confident you are in this prediction.
-        - Explanation: A brief explanation of why this title was chosen.
-    }
-
-    - If you predict a Class title (fallback):
-    ```json
-    {
-        - Class_Title: The predicted Class title.
-        - Confidence_Score: A number between 0 and 1 representing how confident you are in this prediction.
-        - Explanation: A brief explanation of why this title was chosen.
-    }
-    
-    4. If you **cannot predict a meaningful title**, return an error:
-    ```json
-    {
-        "Error": "No suitable match found. Could not predict a valid UNSPSC code."
-    }
-    """
+    return_format = RETURN_FORMAT
     llm_prompt = f"Process the product description and predict the most relevant Commodity or Class title for: Please return in JSON format: {return_format} {query_text}"
     
     response = client.chat.completions.create(
@@ -182,7 +158,7 @@ def get_unspsc_code(query_text):
 
     # If LLM provides a valid prediction, proceed with the HNSW search
     if title is not None:
-        dataset_match = find_best_match_in_hierarchy(title)
+        dataset_match = find_best_match_in_hierarchy(embedding_model, HNSW_INDEXES, title)
     else: 
         dataset_match = None
     # if dataset_match:
@@ -195,17 +171,27 @@ def get_unspsc_code(query_text):
     logger.info(f"Match found: {dataset_match}")
     return json.dumps(dataset_match, indent=4)
 
-# Main Function Loop
-if __name__ == "__main__":
+
+def main():
+    logger.info(f"envs: {GROQ_API_KEY, SYSTEM_PROMPT, JSON_FILE_PATTERN}")
+    embedding_model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+    client = groq.Client(api_key=GROQ_API_KEY)
+    SAMPLE_SIZE = 158000
+    UNSPSC_DATA = load_unspsc_parquet(SAMPLE_SIZE)
+    HNSW_INDEXES = build_hnsw_index(embedding_model, UNSPSC_DATA)
+
     while True:
         try:
             user_input = input("\nEnter product description: ")
             if user_input.lower() in ["exit", "quit"]:
                 print("Exiting...")
                 break
-            result = get_unspsc_code(user_input)
-            #print(result)
+            result = get_unspsc_code(client, embedding_model, HNSW_INDEXES, user_input)
+            print(result)
         except KeyboardInterrupt:
             # Handle Ctrl+C gracefully
             print("\nSearch interrupted. Press Ctrl+C again to exit or continue searching.")
             continue  # Restart the loop to allow searching again
+
+if __name__ == "__main__":
+    main()

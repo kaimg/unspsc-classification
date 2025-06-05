@@ -10,7 +10,8 @@ wheels/
 .venv
 .env
 
-# Store
+# Store\
+data/
 .xlsx
 .csv
 .parquet
@@ -20,3 +21,6 @@ wheels/
 
 # Log
 logs/
+
+# Lock
+.~lock.*
